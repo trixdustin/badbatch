@@ -1,0 +1,306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum InventoryReason {
+  RESTOCK
+  WASTE
+  CORRECTION
+  SALE
+  ONLINE_ORDER
+}
+
+enum PaymentMethod {
+  CASH
+  OTHER
+}
+
+enum IngredientUnit {
+  GRAM
+  KILOGRAM
+  MILLILITER
+  LITER
+  UNIT
+}
+
+enum PaymentStatus {
+  AWAITING_PAYMENT
+  PROOF_SUBMITTED
+  VERIFICATION_REQUIRED
+  CONFIRMED
+  REJECTED
+}
+
+enum PaymentProofMethod {
+  WEBSITE
+  INSTAGRAM
+}
+
+enum PaymentProofStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+model User {
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  passwordHash         String
+  name                 String?
+  role                 UserRole              @default(CUSTOMER)
+  orders               Order[]
+  posSales             PosSale[]
+  inventoryAdjustments InventoryAdjustment[]
+  paymentVerifications Order[]                 @relation("OrderPaymentVerifier")
+  paymentProofReviews  PaymentProof[]           @relation("PaymentProofReviewer")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+}
+
+model Product {
+  id                   String                @id @default(cuid())
+  name                 String
+  slug                 String                @unique
+  subtitle             String                @default("")
+  category             String                @default("cookie")
+  description          String                @default("")
+  price                Decimal               @db.Decimal(10, 2)
+  image                String                @default("")
+  isSeasonal           Boolean               @default(false)
+  isAvailable          Boolean               @default(true)
+  stock                Int?
+  lowStockThreshold    Int                   @default(5) // Checked by the costing migration.
+  orderItems           OrderItem[]
+  posSaleItems         PosSaleItem[]
+  inventoryAdjustments InventoryAdjustment[]
+  seasonalForStores    StoreSettings[]       @relation("SeasonalProduct")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  recipe               ProductRecipe?
+  reviews              CustomerReview[]
+}
+
+model Ingredient {
+  id                  String                    @id @default(cuid())
+  name                String
+  purchaseQuantity    Decimal                   @db.Decimal(12, 3)
+  purchaseUnit        IngredientUnit
+  purchaseCost        Decimal                   @db.Decimal(12, 2)
+  costPerBaseUnit     Decimal                   @db.Decimal(18, 8)
+  supplier            String?
+  notes               String?
+  recipeVersionLines  RecipeVersionIngredient[]
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  @@index([name])
+}
+
+model ProductRecipe {
+  id        String          @id @default(cuid())
+  productId String          @unique
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  versions  RecipeVersion[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  // PostgreSQL migration triggers keep recipe history append-only.
+}
+
+model RecipeVersion {
+  id                           String                    @id @default(cuid())
+  recipeId                     String
+  recipe                       ProductRecipe             @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  version                      Int
+  batchYield                   Int
+  sellingPriceSnapshot         Decimal                   @db.Decimal(10, 2)
+  cookieWeight                 Decimal?                  @db.Decimal(10, 3)
+  packagingCostPerCookie       Decimal                   @default(0) @db.Decimal(10, 2)
+  additionalDirectCostPerCookie Decimal                   @default(0) @db.Decimal(10, 2)
+  ingredients                  RecipeVersionIngredient[]
+  createdAt                    DateTime                  @default(now())
+
+  // Save edits as new versions; PostgreSQL migration triggers prevent mutation/deletion.
+
+  @@unique([recipeId, version])
+  @@index([recipeId, createdAt])
+}
+
+model RecipeVersionIngredient {
+  id                    String          @id @default(cuid())
+  recipeVersionId       String
+  recipeVersion         RecipeVersion   @relation(fields: [recipeVersionId], references: [id], onDelete: Cascade)
+  ingredientId          String?
+  ingredient            Ingredient?     @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  ingredientName        String
+  quantity              Decimal         @db.Decimal(12, 3)
+  unit                  IngredientUnit
+  costPerBaseUnitSnapshot Decimal        @db.Decimal(18, 8)
+  ingredientCostSnapshot Decimal        @db.Decimal(12, 2)
+
+  // Snapshot fields are immutable; ingredientId may be nulled if the ingredient is deleted.
+
+  @@index([recipeVersionId])
+  @@index([ingredientId])
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  publicNumber String      @unique @db.Char(6)
+  customerId   String?
+  customer     User?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  status       OrderStatus @default(PENDING)
+  customerName String
+  email        String
+  phone        String
+  address      String
+  notes        String      @default("")
+  total        Decimal     @db.Decimal(10, 2)
+  items        OrderItem[]
+  paymentStatus PaymentStatus?
+  paymentVerifiedAt DateTime?
+  paymentVerifiedById String?
+  paymentVerifiedBy User? @relation("OrderPaymentVerifier", fields: [paymentVerifiedById], references: [id], onDelete: SetNull)
+  paymentRejectionReason String?
+  paymentProofs PaymentProof[]
+  reviews       CustomerReview[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model PaymentProof {
+  id                String             @id @default(cuid())
+  orderId           String
+  order             Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method            PaymentProofMethod
+  status            PaymentProofStatus @default(PENDING)
+  reference         String?
+  imageData         Bytes?
+  contentType       String?
+  internalNote      String?
+  rejectionReason   String?
+  submittedAt       DateTime           @default(now())
+  reviewedAt        DateTime?
+  reviewedByAdminId String?
+  reviewedByAdmin   User?              @relation("PaymentProofReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, submittedAt])
+  @@index([reviewedByAdminId])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+}
+
+model StoreSettings {
+  id                String   @id @default("store")
+  orderingEnabled   Boolean  @default(false)
+  announcement      String   @default("")
+  seasonalProductId String?
+  seasonalProduct   Product? @relation("SeasonalProduct", fields: [seasonalProductId], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model InventoryAdjustment {
+  id        String          @id @default(cuid())
+  productId String
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  change    Int
+  reason    InventoryReason
+  note      String          @default("")
+  adminId   String?
+  admin     User?           @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  createdAt DateTime        @default(now())
+
+  @@index([productId, createdAt])
+  @@index([createdAt])
+}
+
+model PosSale {
+  id            String        @id @default(cuid())
+  total         Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  adminId       String?
+  admin         User?         @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  items         PosSaleItem[]
+  createdAt     DateTime      @default(now())
+
+  @@index([createdAt])
+}
+
+model PosSaleItem {
+  id        String  @id @default(cuid())
+  posSaleId String
+  posSale   PosSale @relation(fields: [posSaleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+
+  @@index([posSaleId])
+}
+
+model CustomerReview {
+  id             String       @id @default(cuid())
+  productId      String?
+  product        Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  orderId        String?
+  order          Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  displayName    String       @db.VarChar(80)
+  rating         Int
+  body           String       @db.VarChar(1200)
+  contentHash    String       @unique @db.Char(64)
+  status         ReviewStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([orderId, productId])
+  @@index([status, createdAt])
+  @@index([status, rating, createdAt])
+  @@index([productId, status, createdAt])
+}
+
+model ReviewSubmissionLimit {
+  id          String   @id @default(cuid())
+  fingerprint String   @db.Char(64)
+  bucket      DateTime
+  slot        Int
+  createdAt   DateTime @default(now())
+
+  @@unique([fingerprint, bucket, slot])
+  @@index([fingerprint, createdAt])
+  @@index([createdAt])
+}
