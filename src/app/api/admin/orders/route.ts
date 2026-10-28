@@ -22,6 +22,8 @@ export async function GET() {
         select: {
           quantity: true,
           price: true,
+          setId: true,
+          setContents: true,
           product: { select: { name: true } },
         },
       },

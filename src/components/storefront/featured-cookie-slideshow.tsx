@@ -74,9 +74,10 @@ export function FeaturedCookieSlideshow({ products }: { products: StorefrontProd
         >
           <ProductImage
             alt={`${copy.name} cookie`}
-            className="aspect-[4/3] w-full"
+            className="aspect-[4/3] w-full max-w-[480px]"
             index={copy.index}
-            sizes="(max-width: 768px) 100vw, 56vw"
+            slug={product.slug}
+            sizes="(max-width: 768px) min(100vw, 480px), 38vw"
             src={product.image || null}
           />
         </div>

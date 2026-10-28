@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db/prisma";
 import { isPurchasable } from "@/lib/inventory/stock";
 import { paymentMethodLabels } from "@/lib/inventory/stock";
 import { formatPhp } from "@/lib/format/currency";
+import { COOKIE_SET_NAMES } from "@/lib/storefront/sets";
 
 export const instant = false;
 const salesPageSize = 20;
@@ -22,6 +23,7 @@ export default async function AdminPosPage({
   const requestedDate = typeof query.date === "string" ? query.date : "";
   const dateRange = requestedDate ? getStoreDayRangeForDate(requestedDate) : null;
   const selectedDate = dateRange ? requestedDate : "";
+  const storeSettings = await prisma.storeSettings.findUnique({ where: { id: "store" }, select: { seasonalProductId: true } });
   const requestedPage = Number(query.page);
   const requestedPageNumber = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const salesWhere = dateRange ? { createdAt: { gte: dateRange.start, lt: dateRange.end } } : {};
@@ -72,6 +74,8 @@ export default async function AdminPosPage({
         select: {
           quantity: true,
           price: true,
+          setId: true,
+          setContents: true,
           product: { select: { slug: true } },
         },
       },
@@ -84,6 +88,7 @@ export default async function AdminPosPage({
     slug: product.slug,
     price: product.price.toFixed(2),
     isSeasonal: product.isSeasonal,
+    isCurrentSeasonal: product.id === storeSettings?.seasonalProductId,
     isAvailable: product.isAvailable,
     stock: product.stock,
     purchasable: isPurchasable(product),
@@ -173,7 +178,7 @@ export default async function AdminPosPage({
                       {sale.items
                         .map(
                           (item) =>
-                            `${item.quantity} × ${item.product.slug.replaceAll("-", " ")}`,
+                            `${item.quantity} × ${item.setId ? COOKIE_SET_NAMES[item.setId] ?? item.setId : item.product.slug.replaceAll("-", " ")}`,
                         )
                         .join(", ")}
                     </td>

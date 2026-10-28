@@ -10,6 +10,7 @@ import { requireAdminPage } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db/prisma";
 import { formatPhp } from "@/lib/format/currency";
 import { paymentMethodLabels } from "@/lib/inventory/stock";
+import { COOKIE_SET_NAMES, describeSetContents } from "@/lib/storefront/sets";
 
 export const instant = false;
 
@@ -32,6 +33,8 @@ export default async function PosSaleDetailPage({
           id: true,
           quantity: true,
           price: true,
+          setId: true,
+          setContents: true,
           product: { select: { name: true, slug: true } },
         },
       },
@@ -87,8 +90,8 @@ export default async function PosSaleDetailPage({
                 return (
                   <tr className="border-b border-neutral-200" key={item.id}>
                     <td className="py-3 pr-3">
-                      <span>{item.product.name}</span>
-                      <span className="mt-1 block text-xs text-neutral-500">{item.product.slug}</span>
+                      <span>{item.setId ? COOKIE_SET_NAMES[item.setId] ?? item.setId : item.product.name}</span>
+                      {item.setContents ? <span className="mt-1 block text-xs text-neutral-500">{describeSetContents(item.setContents as { slug: string; quantity: number }[], item.quantity)}</span> : <span className="mt-1 block text-xs text-neutral-500">{item.product.slug}</span>}
                     </td>
                     <td className="py-3 px-2 text-right tabular-nums">{item.quantity}</td>
                     <td className="whitespace-nowrap py-3 px-2 text-right tabular-nums">

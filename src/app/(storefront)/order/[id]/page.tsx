@@ -9,10 +9,11 @@ import { verifyOrderConfirmationToken } from "@/lib/auth/order-confirmation";
 import { prisma } from "@/lib/db/prisma";
 import { getProductLabel } from "@/lib/storefront/product-copy";
 import { formatPhp } from "@/lib/format/currency";
-import { getGcashConfiguration } from "@/lib/payments/configuration";
 import { instagramUrl } from "@/lib/storefront/instagram";
 import { PaymentProofForm } from "@/components/storefront/payment-proof-form";
 import { ReviewSubmissionForm } from "@/components/storefront/review-submission-form";
+import { COOKIE_SET_NAMES, describeSetContents } from "@/lib/storefront/sets";
+import { GcashDetails } from "@/components/storefront/gcash-details";
 
 export const instant = false;
 
@@ -38,7 +39,6 @@ export default async function OrderPage({ params }: PageProps<"/order/[id]">) {
       id: true,
       publicNumber: true,
       customerName: true,
-      email: true,
       total: true,
       status: true,
       paymentStatus: true,
@@ -47,6 +47,8 @@ export default async function OrderPage({ params }: PageProps<"/order/[id]">) {
         select: {
           quantity: true,
           price: true,
+          setId: true,
+          setContents: true,
           product: { select: { id: true, name: true, slug: true, subtitle: true } },
         },
       },
@@ -55,7 +57,6 @@ export default async function OrderPage({ params }: PageProps<"/order/[id]">) {
   });
 
   if (!order) notFound();
-  const gcash = getGcashConfiguration();
 
   return (
     <section className="max-w-3xl py-12 sm:py-20">
@@ -64,8 +65,7 @@ export default async function OrderPage({ params }: PageProps<"/order/[id]">) {
         Thanks, {order.customerName}.
       </h1>
       <p className="mt-5 max-w-xl text-sm leading-6 text-[var(--cream-muted)]">
-        We’ll be in touch at <span className="text-[var(--cream)]">{order.email}</span> with the next step.
-        Payment has not been verified yet. Use the instructions below to submit proof.
+        Your order is saved. Use the instructions below to complete payment.
       </p>
 
       <div className="mt-10 border-y border-[var(--rule)]">
@@ -77,15 +77,13 @@ export default async function OrderPage({ params }: PageProps<"/order/[id]">) {
           {order.items.map((item, index) => (
             <li className="flex items-baseline justify-between gap-5 py-4" key={`${item.product.slug}-${index}`}>
               <span className="text-sm">
-                {getProductLabel(item.product.slug, undefined, item.product.name)}
-                {item.product.subtitle ? (
+                {item.setId ? COOKIE_SET_NAMES[item.setId] ?? item.setId : getProductLabel(item.product.slug, undefined, item.product.name)}
+                {item.setContents ? <span className="mt-1 block text-xs text-[var(--cream-muted)]">{describeSetContents(item.setContents as { slug: string; quantity: number }[], item.quantity)}</span> : item.product.subtitle ? (
                   <span className="mt-1 block text-xs text-[var(--cream-muted)]">{item.product.subtitle}</span>
                 ) : null}
-                <span className="ml-2 text-xs text-[var(--cream-muted)]">× {item.quantity}</span>
+                <span className="ml-2 text-xs text-[var(--cream-muted)]">× {item.quantity}{item.setId ? " set(s)" : ""}</span>
               </span>
-              <span className="shrink-0 text-sm tabular-nums">
-                {formatPrice(item.price.mul(item.quantity))}
-              </span>
+              <span className="shrink-0 text-sm tabular-nums">{formatPrice(item.price.mul(item.quantity))}</span>
             </li>
           ))}
         </ul>
@@ -95,22 +93,15 @@ export default async function OrderPage({ params }: PageProps<"/order/[id]">) {
         </div>
       </div>
 
-      <section aria-labelledby="gcash-instructions-heading" className="mt-8">
-        <h2 className="text-lg" id="gcash-instructions-heading">GCash payment instructions</h2>
-        <p className="mt-3 text-sm leading-6 text-[var(--cream-muted)]">
-          Amount due: <strong className="text-[var(--cream)]">{formatPrice(order.total)}</strong>. Payment remains pending until a BAD BATCH admin verifies it.
-        </p>
-        {gcash ? (
-          <dl className="mt-4 grid gap-3 border-y border-[var(--rule)] py-4 text-sm sm:grid-cols-2">
-            <div><dt className="micro-label">GCash account name</dt><dd className="mt-1">{gcash.accountName}</dd></div>
-            <div><dt className="micro-label">GCash number</dt><dd className="mt-1 font-mono">{gcash.accountNumber}</dd></div>
-          </dl>
-        ) : (
-          <p className="mt-4 border-l-2 border-[var(--accent)] pl-4 text-sm leading-6">
-            GCash account details are not configured. Please use the Instagram alternative to request payment instructions.
+      {order.paymentStatus === "AWAITING_PAYMENT" || order.paymentStatus === "REJECTED" || order.paymentStatus === null ? (
+        <section aria-labelledby="gcash-instructions-heading" className="mt-8">
+          <h2 className="text-lg" id="gcash-instructions-heading">GCash payment instructions</h2>
+          <p className="mt-3 text-sm leading-6 text-[var(--cream-muted)]">
+            Amount due: <strong className="text-[var(--cream)]">{formatPrice(order.total)}</strong>. Payment remains pending until a BAD BATCH admin verifies it.
           </p>
-        )}
-      </section>
+          <GcashDetails />
+        </section>
+      ) : null}
 
       <PaymentProofForm
         orderId={order.id}

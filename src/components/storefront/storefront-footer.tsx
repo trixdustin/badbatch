@@ -9,6 +9,7 @@ export function StorefrontFooter() {
       <BrandLogo />
       <nav aria-label="Footer" className="footer-links">
         <Link className="footer-link" href="/menu">menu</Link>
+        <Link className="footer-link" href="/sets">sets</Link>
         <InstagramLink className="footer-link">instagram ↗</InstagramLink>
         <a className="footer-link" href={`mailto:${contactEmail}`}>email</a>
         <Link aria-label="Admin sign in" className="footer-admin-mark" href="/admin/login" title="Admin sign in">

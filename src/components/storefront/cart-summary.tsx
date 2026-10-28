@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
 import { InstagramLink } from "@/components/storefront/instagram-link";
 import { ProductImage } from "@/components/storefront/product-image";
 import { QuantitySelector } from "@/components/storefront/quantity-selector";
 import { useCart } from "@/components/storefront/cart-provider";
 import { formatPhp } from "@/lib/format/currency";
+import { describeSetContents } from "@/lib/storefront/sets";
 
 function centsFromPrice(price: string) {
   const amount = Number(price);
@@ -36,35 +38,36 @@ export function CartSummary() {
   }
 
   const hasPlaceholderPrice = items.some((item) => centsFromPrice(item.price) === 0);
-  const subtotal = items.reduce(
-    (total, item) => total + centsFromPrice(item.price) * item.quantity,
-    0,
-  );
+  const subtotal = items.reduce((total, item) => total + centsFromPrice(item.price) * item.quantity, 0);
 
   return (
     <div>
       <ul className="divide-y divide-[var(--rule)] border-y border-[var(--rule)]">
         {items.map((item, index) => {
           const productName = item.name;
+          const isSet = "setId" in item;
           return (
             <li
               className="grid grid-cols-[88px_minmax(0,1fr)] gap-4 py-5 sm:grid-cols-[112px_minmax(0,1fr)_auto]"
               key={item.id}
             >
-              <Link aria-label={`View ${productName}`} href={`/cookies/${item.slug}`}>
+              <div>
                 <ProductImage
                   alt={productName}
-                  className="aspect-[4/5] w-full"
+                  className={`${!isSet && item.slug === "the-classic" ? "aspect-[6/5]" : "aspect-[4/5]"} w-full`}
                   index={String(index + 1).padStart(2, "0")}
+                  slug={isSet ? undefined : item.slug}
+                  variant={isSet ? undefined : "cart"}
                   sizes="112px"
                   src={item.image || null}
                 />
-              </Link>
+              </div>
               <div className="flex min-w-0 flex-col justify-center">
                 <p className="text-[15px]">{productName}</p>
-                {item.subtitle ? <p className="mt-1 text-xs text-[var(--cream-muted)]">{item.subtitle}</p> : null}
-                {item.category ? <p className="micro-label mt-2">{item.category}</p> : null}
-                {item.isSeasonal ? (
+                {!isSet && item.subtitle ? <p className="mt-1 text-xs text-[var(--cream-muted)]">{item.subtitle}</p> : null}
+                {isSet ? <p className="mt-2 text-xs leading-5 text-[var(--cream-muted)]">{describeSetContents(item.contents, item.quantity)}</p> : null}
+                {!isSet && item.category ? <p className="micro-label mt-2">{item.category}</p> : null}
+                {!isSet && item.isSeasonal ? (
                   <p className="micro-label mt-2">limited / seasonal</p>
                 ) : null}
                 <div className="mt-4 flex flex-wrap items-center gap-4">
@@ -74,11 +77,13 @@ export function CartSummary() {
                     value={item.quantity}
                   />
                   <button
-                    className="text-[10px] text-[var(--silver)] underline underline-offset-4 hover:text-[var(--cream)]"
+                    aria-label={`Remove ${productName} from your batch`}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-sm border border-[var(--rule)] bg-[var(--surface)] px-3 text-xs text-[var(--cream-muted)] transition-colors hover:border-[var(--silver)] hover:bg-[var(--surface-raised)] hover:text-[var(--cream)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cream)]"
                     onClick={() => removeItem(item.id)}
                     type="button"
                   >
-                    remove
+                    <Trash2 aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    <span>remove</span>
                   </button>
                 </div>
               </div>

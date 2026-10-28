@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import type { PaymentStatus } from "@prisma/client";
 
 const labels: Record<PaymentStatus, string> = {
-  AWAITING_PAYMENT: "Awaiting payment",
-  PROOF_SUBMITTED: "Proof submitted",
-  VERIFICATION_REQUIRED: "Verification required",
+  AWAITING_PAYMENT: "Pending payment",
+  PROOF_SUBMITTED: "Payment submitted · awaiting verification",
+  VERIFICATION_REQUIRED: "Payment submitted · awaiting verification",
   CONFIRMED: "Payment confirmed",
   REJECTED: "Payment rejected",
 };
@@ -59,7 +59,7 @@ export function PaymentProofForm({
     <section aria-labelledby="payment-proof-heading" className="mt-10 border-y border-[var(--rule)] py-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="text-lg" id="payment-proof-heading">Payment</h2>
-        <p aria-live="polite" className="micro-label">{status ? labels[status] : "Awaiting payment"}</p>
+        <p aria-live="polite" className="micro-label">{status ? labels[status] : "Payment status unavailable"}</p>
       </div>
 
       {status === "PROOF_SUBMITTED" || status === "VERIFICATION_REQUIRED" ? (

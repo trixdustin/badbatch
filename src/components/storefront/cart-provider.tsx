@@ -23,12 +23,15 @@ export type CartProduct = {
 };
 
 export type CartLine = CartProduct & { quantity: number };
+export type CartSetLine = { id: string; setId: string; name: string; price: string; quantity: number; image: string; contents: { slug: string; quantity: number }[] };
+export type CartEntry = CartLine | CartSetLine;
 
 type CartContextValue = {
-  items: CartLine[];
+  items: CartEntry[];
   itemCount: number;
   hydrated: boolean;
   addItem: (product: CartProduct, quantity?: number) => void;
+  addSet: (set: Omit<CartSetLine, "id" | "quantity">) => void;
   setQuantity: (productId: string, quantity: number) => void;
   removeItem: (productId: string) => void;
   clearCart: () => void;
@@ -36,18 +39,20 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 const listeners = new Set<() => void>();
-const emptyCart: CartLine[] = [];
+const emptyCart: CartEntry[] = [];
 
-function isCartLine(value: unknown): value is CartLine {
+function isCartLine(value: unknown): value is CartEntry {
   if (typeof value !== "object" || value === null) return false;
   const line = value as Record<string, unknown>;
   return (
     typeof line.id === "string" &&
+    (typeof line.setId === "string" || typeof line.slug === "string") &&
     typeof line.name === "string" &&
-    typeof line.slug === "string" &&
+    (typeof line.setId === "string" || typeof line.slug === "string") &&
     typeof line.image === "string" &&
     typeof line.price === "string" &&
-    typeof line.isSeasonal === "boolean" &&
+    (typeof line.setId === "string" || typeof line.isSeasonal === "boolean") &&
+    (typeof line.setId !== "string" || (Array.isArray(line.contents) && line.contents.every((part) => typeof part === "object" && part !== null && typeof (part as Record<string, unknown>).slug === "string" && Number.isInteger((part as Record<string, unknown>).quantity)))) &&
     typeof line.quantity === "number" &&
     Number.isInteger(line.quantity) &&
     line.quantity >= 1 &&
@@ -55,7 +60,7 @@ function isCartLine(value: unknown): value is CartLine {
   );
 }
 
-function readStoredCart(value: string | null): CartLine[] {
+function readStoredCart(value: string | null): CartEntry[] {
   if (!value) return [];
   try {
     const parsed: unknown = JSON.parse(value);
@@ -65,7 +70,7 @@ function readStoredCart(value: string | null): CartLine[] {
   }
 }
 
-function readInitialCart(): CartLine[] | null {
+function readInitialCart(): CartEntry[] | null {
   if (typeof window === "undefined") return null;
   try {
     return readStoredCart(window.localStorage.getItem(storageKey));
@@ -75,7 +80,7 @@ function readInitialCart(): CartLine[] | null {
   }
 }
 
-let cartSnapshot = readInitialCart();
+let cartSnapshot = readInitialCart() as CartEntry[] | null;
 
 function getSnapshot() {
   return cartSnapshot;
@@ -89,7 +94,7 @@ function notify() {
   listeners.forEach((listener) => listener());
 }
 
-function persistCart(items: CartLine[]) {
+function persistCart(items: CartEntry[]) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(items));
@@ -98,7 +103,7 @@ function persistCart(items: CartLine[]) {
   }
 }
 
-function updateCart(updater: (current: CartLine[]) => CartLine[]) {
+function updateCart(updater: (current: CartEntry[]) => CartEntry[]) {
   cartSnapshot = updater(cartSnapshot ?? []);
   persistCart(cartSnapshot);
   notify();
@@ -138,6 +143,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const addSet = useCallback((set: Omit<CartSetLine, "id" | "quantity">) => {
+    updateCart((current) => [...current, { ...set, id: `set-${crypto.randomUUID()}`, quantity: 1 }]);
+  }, []);
+
   const setQuantity = useCallback((productId: string, quantity: number) => {
     updateCart((current) =>
       quantity <= 0
@@ -157,14 +166,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       items,
-      itemCount: items.reduce((total, item) => total + item.quantity, 0),
+      itemCount: items.reduce((total, item) => total + item.quantity * ("contents" in item ? item.contents.reduce((count, part) => count + part.quantity, 0) : 1), 0),
       hydrated,
       addItem,
+      addSet,
       setQuantity,
       removeItem,
       clearCart,
     }),
-    [items, hydrated, addItem, setQuantity, removeItem, clearCart],
+    [items, hydrated, addItem, addSet, setQuantity, removeItem, clearCart],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

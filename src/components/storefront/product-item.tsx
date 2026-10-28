@@ -31,7 +31,7 @@ export function ProductItem({
   const soldOut = product.isAvailable && isStockTracked(product.stock) && product.stock <= 0;
 
   return (
-    <article className="section-rule grid grid-cols-[minmax(104px,0.7fr)_minmax(0,1.3fr)] gap-4 py-5 sm:grid-cols-[minmax(180px,0.72fr)_minmax(0,1.28fr)] sm:gap-8 sm:py-7">
+    <article className="section-rule grid grid-cols-[minmax(84px,0.5fr)_minmax(0,1.5fr)] gap-4 py-5 sm:grid-cols-[minmax(132px,0.55fr)_minmax(0,1.45fr)] sm:gap-8 sm:py-7">
       <Link
         aria-label={`View ${label}${product.isSeasonal ? ", limited batch" : ""}`}
         className="block"
@@ -39,9 +39,10 @@ export function ProductItem({
       >
         <ProductImage
           alt={`${label} cookie`}
-          className="aspect-[4/5] w-full"
+          className={`${product.slug === "the-classic" ? "aspect-[6/5]" : "aspect-square"} w-full`}
           index={copy.index}
-          sizes="(max-width: 640px) 38vw, 240px"
+          slug={product.slug}
+          sizes="(max-width: 640px) 30vw, 176px"
           src={product.image || null}
         />
       </Link>

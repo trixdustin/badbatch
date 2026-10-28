@@ -188,6 +188,10 @@ model Order {
   paymentVerifiedById String?
   paymentVerifiedBy User? @relation("OrderPaymentVerifier", fields: [paymentVerifiedById], references: [id], onDelete: SetNull)
   paymentRejectionReason String?
+  emailVerifiedAt DateTime?
+  emailVerificationTokenHash String? @unique @db.Char(64)
+  emailVerificationExpiresAt DateTime?
+  emailVerificationSentAt DateTime?
   paymentProofs PaymentProof[]
   reviews       CustomerReview[]
   createdAt    DateTime    @default(now())
@@ -222,6 +226,8 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity  Int
   price     Decimal @db.Decimal(10, 2)
+  setId     String?
+  setContents Json?
 }
 
 model StoreSettings {
@@ -269,6 +275,8 @@ model PosSaleItem {
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   quantity  Int
   price     Decimal @db.Decimal(10, 2)
+  setId     String?
+  setContents Json?
 
   @@index([posSaleId])
 }

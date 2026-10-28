@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { CheckoutForm } from "@/components/storefront/checkout-form";
 import { SectionLabel } from "@/components/storefront/section-label";
 import { prisma } from "@/lib/db/prisma";
+import { GcashDetails } from "@/components/storefront/gcash-details";
 
 export const instant = false;
 
@@ -33,6 +34,11 @@ export default async function CheckoutPage() {
         </div>
       ) : null}
       <CheckoutForm orderingEnabled={Boolean(settings?.orderingEnabled)} />
+      <section aria-labelledby="checkout-gcash-heading" className="mt-10 max-w-2xl border-t border-[var(--rule)] pt-7">
+        <h2 className="text-lg" id="checkout-gcash-heading">GCash payment details</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--cream-muted)]">After placing your order, pay the amount shown on your order page. Payment is confirmed only after BAD BATCH reviews your proof.</p>
+        <GcashDetails />
+      </section>
       <Link
         className="mt-10 inline-flex text-[11px] text-[var(--cream-muted)] underline underline-offset-4 hover:text-[var(--cream)]"
         href="/cart"

@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db/prisma";
 import { fulfillmentLabel, isFulfillmentProvided } from "@/lib/orders/fulfillment";
 import { getProductLabel } from "@/lib/storefront/product-copy";
 import { formatPhp } from "@/lib/format/currency";
+import { COOKIE_SET_NAMES, describeSetContents } from "@/lib/storefront/sets";
 
 export default async function AdminOrderDetailPage({
   params,
@@ -58,6 +59,8 @@ export default async function AdminOrderDetailPage({
         select: {
           quantity: true,
           price: true,
+          setId: true,
+          setContents: true,
           product: { select: { name: true, slug: true, subtitle: true } },
         },
       },
@@ -146,10 +149,11 @@ export default async function AdminOrderDetailPage({
             {order.items.map((item, index) => (
               <li className="flex items-start justify-between gap-5 py-4" key={`${order.id}-${index}`}>
                 <div>
-                  <p>{getProductLabel(item.product.slug, undefined, item.product.name)}</p>
+                  <p>{item.setId ? COOKIE_SET_NAMES[item.setId] ?? item.setId : getProductLabel(item.product.slug, undefined, item.product.name)}</p>
                   <p className="mt-1 text-sm text-neutral-600">
-                    {item.quantity} × {formatPhp(Number(item.price.toFixed(2)))} each
+                    {item.setId ? `${item.quantity} set(s) · ${formatPhp(Number(item.price.toFixed(2)))} per set` : `${item.quantity} × ${formatPhp(Number(item.price.toFixed(2)))} each`}
                   </p>
+                  {item.setContents ? <p className="mt-1 text-xs text-neutral-500">{describeSetContents(item.setContents as { slug: string; quantity: number }[], item.quantity)}</p> : null}
                   {item.product.subtitle ? (
                     <p className="mt-1 text-xs text-neutral-500">{item.product.subtitle}</p>
                   ) : null}

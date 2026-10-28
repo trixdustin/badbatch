@@ -59,7 +59,7 @@ export default async function CookiePage({ params }: PageProps<"/cookies/[slug]"
         <span aria-hidden="true">←</span> back to the menu
       </Link>
 
-      <div className="grid gap-9 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-16">
+      <div className="grid gap-9 lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-12">
         <div className="flex flex-col justify-center py-2 lg:py-10">
           <SectionLabel index={number}>
             {product.isSeasonal ? "limited batch" : "permanent batch"}
@@ -112,10 +112,11 @@ export default async function CookiePage({ params }: PageProps<"/cookies/[slug]"
         </div>
         <ProductImage
           alt={`${product.name} cookie`}
-          className="aspect-[4/5] w-full sm:aspect-[1/0.9] lg:aspect-[0.92/1]"
+          className={`mx-auto w-full max-w-[440px] ${product.slug === "the-classic" ? "aspect-[6/5]" : "aspect-square"}`}
           index={number}
           priority
-          sizes="(max-width: 1024px) 100vw, 58vw"
+          slug={product.slug}
+          sizes="(max-width: 1024px) min(100vw, 440px), 440px"
           src={product.image || null}
         />
       </div>

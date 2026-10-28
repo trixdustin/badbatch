@@ -79,6 +79,8 @@ async function OrdersContent({
         items: {
           select: {
             quantity: true,
+            setId: true,
+            setContents: true,
             product: { select: { name: true, slug: true } },
           },
         },
@@ -184,9 +186,9 @@ async function OrdersContent({
                       <br /><span className="text-neutral-500">{order.email}</span>
                     </td>
                     <td className="py-4 pr-4">
-                      <span>{order.items.reduce((count, item) => count + item.quantity, 0)} items</span>
+                      <span>{order.items.reduce((count, item) => count + item.quantity * (item.setContents ? (item.setContents as { quantity: number }[]).reduce((sum, part) => sum + part.quantity, 0) : 1), 0)} cookies</span>
                       <p className="mt-1 max-w-64 text-xs text-neutral-500">
-                        {order.items.map((item) => `${item.quantity} × ${getProductLabel(item.product.slug, undefined, item.product.name)}`).join(", ")}
+                        {order.items.map((item) => item.setId ? `${item.quantity} × ${item.setId} (${(item.setContents as { slug: string; quantity: number }[]).map((part) => `${part.quantity} ${part.slug}`).join(" + ")})` : `${item.quantity} × ${getProductLabel(item.product.slug, undefined, item.product.name)}`).join(", ")}
                       </p>
                     </td>
                     <td className="whitespace-nowrap py-4 pr-4">{formatPhp(Number(order.total.toFixed(2)))}</td>

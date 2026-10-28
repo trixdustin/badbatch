@@ -14,6 +14,7 @@ export function AdminNav() {
         <Link href="/admin/costing">costing</Link>
         <Link href="/admin/products">products</Link>
         <Link href="/admin/settings">settings</Link>
+        <Link aria-label="View public storefront in a new tab" className="underline underline-offset-4" href="/" rel="noreferrer" target="_blank">View Storefront ↗</Link>
       </div>
       <ThemeToggle />
       <form action={logoutAction}>

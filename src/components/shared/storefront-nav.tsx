@@ -17,6 +17,7 @@ export function StorefrontNav() {
       <BrandLogo />
       <nav aria-label="Main navigation" className="site-nav">
         <Link href="/menu">menu</Link>
+        <Link href="/sets">sets</Link>
         <Link href="/reviews">reviews</Link>
         <Link href="/#story">about</Link>
         <InstagramLink className="nav-order-link">instagram</InstagramLink>
@@ -56,6 +57,7 @@ export function StorefrontNav() {
         id="storefront-mobile-menu"
       >
           <Link href="/menu" onClick={closeMobileMenu}>the menu</Link>
+          <Link href="/sets" onClick={closeMobileMenu}>cookie sets</Link>
           <Link href="/reviews" onClick={closeMobileMenu}>customer reviews</Link>
           <Link href="/#story" onClick={closeMobileMenu}>about BAD BATCH</Link>
           <InstagramLink className="footer-link">Instagram</InstagramLink>
