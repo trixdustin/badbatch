@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useSyncExternalStore,
   type ReactNode,
@@ -40,6 +41,8 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | null>(null);
 const listeners = new Set<() => void>();
 const emptyCart: CartEntry[] = [];
+type CartSnapshot = { items: CartEntry[]; hydrated: boolean };
+const serverSnapshot: CartSnapshot = { items: emptyCart, hydrated: false };
 
 function isCartLine(value: unknown): value is CartEntry {
   if (typeof value !== "object" || value === null) return false;
@@ -70,8 +73,7 @@ function readStoredCart(value: string | null): CartEntry[] {
   }
 }
 
-function readInitialCart(): CartEntry[] | null {
-  if (typeof window === "undefined") return null;
+function readBrowserCart(): CartEntry[] {
   try {
     return readStoredCart(window.localStorage.getItem(storageKey));
   } catch (error) {
@@ -80,14 +82,14 @@ function readInitialCart(): CartEntry[] | null {
   }
 }
 
-let cartSnapshot = readInitialCart() as CartEntry[] | null;
+let cartSnapshot = serverSnapshot;
 
 function getSnapshot() {
   return cartSnapshot;
 }
 
 function getServerSnapshot() {
-  return null;
+  return serverSnapshot;
 }
 
 function notify() {
@@ -104,8 +106,15 @@ function persistCart(items: CartEntry[]) {
 }
 
 function updateCart(updater: (current: CartEntry[]) => CartEntry[]) {
-  cartSnapshot = updater(cartSnapshot ?? []);
-  persistCart(cartSnapshot);
+  const current = cartSnapshot.hydrated ? cartSnapshot.items : readBrowserCart();
+  cartSnapshot = { items: updater(current), hydrated: true };
+  persistCart(cartSnapshot.items);
+  notify();
+}
+
+function hydrateCart() {
+  if (cartSnapshot.hydrated) return;
+  cartSnapshot = { items: readBrowserCart(), hydrated: true };
   notify();
 }
 
@@ -113,21 +122,27 @@ function subscribe(listener: () => void) {
   listeners.add(listener);
   const onStorage = (event: StorageEvent) => {
     if (event.key === storageKey || event.key === null) {
-      cartSnapshot = readStoredCart(event.key === null ? null : event.newValue);
+      cartSnapshot = {
+        items: readStoredCart(event.key === null ? null : event.newValue),
+        hydrated: true,
+      };
       notify();
     }
   };
-  window.addEventListener("storage", onStorage);
+  if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(listener);
-    window.removeEventListener("storage", onStorage);
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);
   };
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const items = snapshot ?? emptyCart;
-  const hydrated = snapshot !== null;
+  const { items, hydrated } = snapshot;
+
+  useEffect(() => {
+    hydrateCart();
+  }, []);
 
   const addItem = useCallback((product: CartProduct, quantity = 1) => {
     updateCart((current) => {

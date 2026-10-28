@@ -1,8 +1,13 @@
+import { Suspense } from "react";
 import { SetsPage } from "@/components/storefront/sets-page";
 import { connection } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
-export default async function CookieSetsPage() {
+export default function CookieSetsPage() {
+  return <Suspense fallback={<SetsPage />}><SeasonalSetsPage /></Suspense>;
+}
+
+async function SeasonalSetsPage() {
   await connection();
   const settings = await prisma.storeSettings.findUnique({ where: { id: "store" }, select: { seasonalProductId: true } });
   const product = settings?.seasonalProductId ? await prisma.product.findUnique({ where: { id: settings.seasonalProductId }, select: { slug: true, name: true, subtitle: true } }) : null;
